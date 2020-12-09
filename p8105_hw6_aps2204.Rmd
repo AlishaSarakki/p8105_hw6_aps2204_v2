@@ -11,6 +11,7 @@ library(stringr)
 library(modelr)
 library(p8105.datasets)
 library(gam)
+library(purrr)
 
 
 knitr::opts_chunk$set(
@@ -114,30 +115,30 @@ Importing and tidying data
 birthweight_df = 
   read_csv("birthweight.csv") %>% 
   mutate(
-    frace = recode(frace,
+    frace = as.factor(recode(frace,
                   `1` = "White",
                   `2` = "Black",
                   `3` = "Asian",
                   `4` = "Puerto Rican",
-                  `8` = "Other")
+                  `8` = "Other"))
   ) %>% 
   mutate(
-    mrace = recode(mrace,
+    mrace = as.factor(recode(mrace,
                   `1` = "White",
                   `2` = "Black",
                   `3` = "Asian",
                   `4` = "Puerto Rican",
-                  `8` = "Other")
+                  `8` = "Other"))
   ) %>% 
   mutate(
-    malform = recode(malform,
+    malform = as.factor(recode(malform,
                           `0` = "absent",
-                          `1` = "present")
+                          `1` = "present"))
   ) %>% 
   mutate(
-    babysex = recode(babysex,
+    babysex = as.factor(recode(babysex,
                      `1` = "male",
-                     `2` = "female")
+                     `2` = "female"))
   ) %>% view()
 
 
@@ -153,100 +154,105 @@ Thinking of looking into:
 * blength - a 2012 [study](https://pubmed.ncbi.nlm.nih.gov/22535715/#:~:text=The%20addition%20of%20fetal%20length,%25%20versus%207.5%25%3B%20P%20%3C%20.) by Melamed et al. found that the addition of fetal length as a variable significantly improved their model's correlation with birth weight.
 * mrace - also correlated with access to adequate care; Black mothers are more likely to have preterm and low-birthweight infants
 * delwt - A 2010 [study](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2974327/#:~:text=Observational%20studies%20have%20generally%20found,birth%20weight%20or%20infant%20adiposity.&text=Moreover%2C%20maternal%20adiposity%20tends%20to,BMI29%20than%20paternal%20adiposity.) found that maternal weight gain during pregnancy increases infant birthweight
+* smoken - smoking has deleterious effects on pregnancy, including increasing the risk of preterm births and low birthweight (CDC)
+* babysex - male infants typically have higher birthweight than female infants
+* ppbmi - pre-pregnancy bmi [is often predictive](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2974327/#:~:text=Observational%20studies%20have%20generally%20found,birth%20weight%20or%20infant%20adiposity.&text=Moreover%2C%20maternal%20adiposity%20tends%20to,BMI29%20than%20paternal%20adiposity.) of infant birthweight
+* fincome may be predictive of access to resources (esp during pregnancy), including medical care, adequate nutrition, etc. 
+* parity [is a signficiant predictor](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3922415/#:~:text=Maternal%20parity%20is%20a%20well,infants%20born%20to%20nulliparous%20women.) of birthweight
+* baby head is also predictive of bw based on what I remember from my Global Health nutrition case studies
 
 
-Some exploration to visualize chosen vars
+Some exploration to visualize chosen vars (replaced different x vars using this same structure)
 ```{r}
 birthweight_df %>% 
   ggplot(aes(x = gaweeks, y = bwt)) +
-  geom_point()
-
-birthweight_df %>% 
-  ggplot(aes(x = blength, y = bwt)) +
-  geom_point()
-
-birthweight_df %>% 
-  ggplot(aes(x = mrace, y = bwt)) +
-  geom_point()
-
-birthweight_df %>% 
-  ggplot(aes(x = delwt, y = bwt)) +
   geom_point()
 ```
 
 
 let's try fitting a model
 ```{r}
-fit = lm(bwt ~ delwt + blength + gaweeks + mrace, data = birthweight_df)
+bw_model_1 = lm(bwt ~ delwt + blength + gaweeks + mrace + smoken + babysex + ppbmi + fincome + parity + bhead, data = birthweight_df)
 ```
 
 and visualize it:
 ```{r}
-fit
-
-summary(fit)
-coef(fit)
-residuals(fit)
-
-```
-A more clear look at these results: 
-```{r}
-broom::glance(fit)
-
-broom::tidy(fit) %>% 
-  select(-std.error, -statistic) %>% 
-  knitr::kable(digits = 3)
-```
-This shows us that gestational weight, infant length,  
-
-Will first make the following models:
-
-* One using length at birth and gestational age as predictors (main effects only)
-* One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
-
-
-Length at birth and gestational age as predictors model
-
-```{r}
-linear_mod = lm(bwt ~ gaweeks + blength, data = birthweight_df)
-pwlin_mod = lm(bwt ~ s(gaweeks) + s(blength), data = birthweight_df)
-smooth_mod = gam(bwt ~ s(gaweeks) + s(blength), data = birthweight_df)
+bw_model_1 %>% 
+  broom::tidy() %>% 
+summary(bw_model_1)
+coef(bw_model_1)
 ```
 
+This shows us that maternal weight, infant length, gestational age, male sex, smoking, pre-pregnancy BMI, family income, parity, and Black race are all signficantly associated with infant birthweight. 
+
+I considered but ultimately didn't include several factors based on the fact that they were not significantly associated with infant birthweight based on the summary of my model. I combined background info/research with a little bit of trial and error to come up with this model. Unclear as to whether this model is truly optimal. 
+
+Plotting this model:
 ```{r}
 birthweight_df %>% 
-  gather_predictions(linear_mod, pwlin_mod, smooth_mod) %>% 
-  ggplot(aes(x = gaweeks, y = bwt)) +
-  geom_point(alpha = .3) +
-  geom_line(aes(y = pred), color = "red") +
-  facet_grid(. ~model)
+modelr::add_residuals(bw_model_1) %>% 
+  add_predictions(bw_model_1, var = "pred", type = NULL) %>% 
+  add_residuals(model = bw_model_1, var = "resid") %>% 
+  ggplot(aes(x = pred, y = resid)) +
+  geom_point(alpha = 0.3) +
+  labs(
+    x = "fitted values",
+    y = "residuals",
+    title = "Residuals against fitted values"
+  )
+  
+
 ```
 
 
+Now, compare to model using length at birth and gestational age as predictors
+```{r}
+bw_model_2 = lm(bwt ~ blength + gaweeks, data = birthweight_df)
+```
 
-
-
-
-
-
-
-could do stepwise model building
-compare to one that uses length at birth and gest age as predictors, one that contains head circumference sex etc. 
-
-
-looking at prediction accuracy based on birthweight for those vars
-
-perhaps start with those two bullet points, look at cross val lecture and adjust code accordingly
-take full dataset and figreu out model u want to propose in this context - just start picking vars and fitting htem, looking at results to see if things are significant
-
-big issues with dataset?
+And compare to model using head circumference, length, sex, and all interactions (including 3-way interaction) between
 
 ```{r}
-# baby_df %>% 
-#   modelr::add_residuals(model_fit) %>% 
-#   ggplot(aes(x = gaweeks, y = resid)) +
-#   geom_point()
+bw_model_3 = lm(bwt ~ bhead + blength + babysex + bhead*blength*babysex, data = birthweight_df)
 ```
+
+And now to cross-validate
+```{r}
+cv_df = 
+  crossv_mc(birthweight_df, 100)
+
+cv_df2 = 
+  cv_df %>% 
+  mutate(
+    bw_model_1 = map(.x = train, ~lm(bwt ~ delwt + blength + gaweeks + mrace + smoken + babysex + ppbmi + fincome + parity, data = .x)),
+    bw_model_2 = map(.x = train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    bw_model_3 = map(.x = train, ~lm(bwt ~ bhead + blength + babysex + bhead*blength*babysex, data = .x))
+    ) %>% 
+   mutate(
+    rmse_model1 = map2_dbl(.x = bw_model_1, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_model2 = map2_dbl(.x = bw_model_2, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_model3 = map2_dbl(.x = bw_model_3, .y = test, ~rmse(model = .x, data = .y))
+  )
+
+cv_df2 %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) %>% 
+  ggplot(aes(x = model, y = rmse)) +
+  geom_violin() + 
+  labs(
+    x = "model",
+    y = "rmse",
+    title = "rmse values for models 1 to 3 (L to R)"
+  )
+
+
+```
+Based on this figure, it would appear that model 3 has the lowest median RMSE value, while model 2 has the highest. 
 
 
 ## Problem 3
