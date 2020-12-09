@@ -166,7 +166,12 @@ Some exploration to visualize chosen vars (replaced different x vars using this 
 ```{r}
 birthweight_df %>% 
   ggplot(aes(x = gaweeks, y = bwt)) +
-  geom_point()
+  geom_point() +
+  labs(
+    x = "gestational age in weeks",
+    y = "birthweight",
+    title = "Visualization Model"
+  )
 ```
 
 
@@ -252,6 +257,7 @@ cv_df2 %>%
 
 
 ```
+
 Based on this figure, it would appear that model 3 has the lowest median RMSE value, while model 2 has the highest. 
 
 
@@ -259,7 +265,7 @@ Based on this figure, it would appear that model 3 has the lowest median RMSE va
 
 download dataset, fit model to dataset, make sure can compute adjusted r-sq (comes from broom::glance), broom::tidy, estimated coefficients, rearrange things so have intercept and slope next to each other that you can multiply and take the log of. 
 
-Import dataset, drop the nas, and select tmin and tmax
+Import dataset
 ```{r}
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -299,7 +305,7 @@ r_sq_boot %>%
   )
 ```
 
-The r-squared values appear to be normally distributed with a left skew and a median value around 0.913.
+The r-squared values appear to be normally distributed with a slight left skew and a median value around 0.913.
 
 Now, onto finding log(β̂ 0∗β̂ 1)
 ```{r}
@@ -331,6 +337,8 @@ log_boot %>%
   mutate(
     log_est = log(intercept*tmin)
   )
+
+log_boot_results
 # I tried to do this first with tmin~tmax, but it produced negative values only, which meant that my log function wouldn't work. Switched it around and it finally worked. 
 ```
 
@@ -350,10 +358,31 @@ These log values appear to be fairly normally and symmetrically distributed, wit
 
 Let's find confidence intervals
 ```{r}
-# for log
+# CI for log estimates
+
+CI_log = 
+log_boot_results %>% 
+  summarize(
+    ci_lower = quantile(log_est, 0.025),
+    ci_upper = quantile(log_est, 0.975)
+  ) %>% 
+  knitr::kable()
+
+CI_log
+
+CI_rsq = 
+  r_sq_boot %>% 
+  summarize(
+       ci_lower = quantile(r.squared, 0.025),
+    ci_upper = quantile(r.squared, 0.975)
+  ) %>% 
+  knitr::kable()
 
 
-
+CI_rsq
 
 ```
 
+
+* The 95% CI for log(β̂ 0∗β̂ 1) is (1.965118, 2.05854).
+* The 95% CI for r squared is (0.8943899, 0.9269525).
