@@ -195,7 +195,6 @@ I considered but ultimately didn't include several factors based on the fact tha
 Plotting this model:
 ```{r}
 birthweight_df %>% 
-modelr::add_residuals(bw_model_1) %>% 
   add_predictions(bw_model_1, var = "pred", type = NULL) %>% 
   add_residuals(model = bw_model_1, var = "resid") %>% 
   ggplot(aes(x = pred, y = resid)) +
