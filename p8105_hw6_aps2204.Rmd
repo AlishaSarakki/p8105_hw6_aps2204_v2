@@ -10,6 +10,7 @@ library(dplyr)
 library(stringr)
 library(modelr)
 library(p8105.datasets)
+library(gam)
 
 
 knitr::opts_chunk$set(
@@ -173,18 +174,53 @@ birthweight_df %>%
   geom_point()
 ```
 
+
+let's try fitting a model
+```{r}
+fit = lm(bwt ~ delwt + blength + gaweeks + mrace, data = birthweight_df)
+```
+
+and visualize it:
+```{r}
+fit
+
+summary(fit)
+coef(fit)
+residuals(fit)
+
+```
+A more clear look at these results: 
+```{r}
+broom::glance(fit)
+
+broom::tidy(fit) %>% 
+  select(-std.error, -statistic) %>% 
+  knitr::kable(digits = 3)
+```
+This shows us that gestational weight, infant length,  
+
 Will first make the following models:
 
 * One using length at birth and gestational age as predictors (main effects only)
 * One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 
 
-Lenght at birth and gestational age as predictors model
+Length at birth and gestational age as predictors model
 
 ```{r}
-
+linear_mod = lm(bwt ~ gaweeks + blength, data = birthweight_df)
+pwlin_mod = lm(bwt ~ s(gaweeks) + s(blength), data = birthweight_df)
+smooth_mod = gam(bwt ~ s(gaweeks) + s(blength), data = birthweight_df)
 ```
 
+```{r}
+birthweight_df %>% 
+  gather_predictions(linear_mod, pwlin_mod, smooth_mod) %>% 
+  ggplot(aes(x = gaweeks, y = bwt)) +
+  geom_point(alpha = .3) +
+  geom_line(aes(y = pred), color = "red") +
+  facet_grid(. ~model)
+```
 
 
 
