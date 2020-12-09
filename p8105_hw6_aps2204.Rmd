@@ -299,7 +299,7 @@ r_sq_boot %>%
   )
 ```
 
-The r-squared values appear to be normally distributed with a slight left skew, and a median value around 0.913.
+The r-squared values appear to be normally distributed with a left skew and a median value around 0.913.
 
 Now, onto finding log(β̂ 0∗β̂ 1)
 ```{r}
@@ -347,9 +347,13 @@ log_boot_results %>%
 
 These log values appear to be fairly normally and symmetrically distributed, with a median around 2.02. 
 
+
 Let's find confidence intervals
 ```{r}
-# for r-sq
+# for log
+
+
+
 
 ```
 
