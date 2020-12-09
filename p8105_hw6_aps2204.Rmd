@@ -259,5 +259,45 @@ Based on this figure, it would appear that model 3 has the lowest median RMSE va
 
 download dataset, fit model to dataset, make sure can compute adjusted r-sq (comes from broom::glance), broom::tidy, estimated coefficients, rearrange things so have intercept and slope next to each other that you can multiply and take the log of. 
 
+Import dataset, drop the nas, and select tmin and tmax
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything()) %>% 
+  drop_na(tmin, tmax) %>% 
+  select(tmin, tmax)
+  
+```
 
+Bootstrap - find r-squared
+```{r}
+r_sq_boot = 
+weather_df %>% 
+  bootstrap(5000, id = "strap_number") %>% 
+  mutate(
+  models = map(.x = strap, ~lm(tmin ~ tmax, data = .x)),
+  results = map(models, broom::glance)
+  ) %>% 
+  unnest(results) %>% 
+  select(r.squared)
+```
+
+Display distribution of r-sq values
+```{r}
+r_sq_boot %>% 
+  ggplot(aes(x = r.squared)) + 
+  geom_density() +
+  labs(
+    x = "r-squared values",
+    title = "Distribution of r-squared values"
+  )
+```
 
